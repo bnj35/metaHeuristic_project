@@ -1,0 +1,25 @@
+[project]
+name = "metaHeuristic"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "vrplib",
+    "pyvrp",
+
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "jupyter", "jupyterlab"]
+
+[project.scripts]
+metaHeuristic-analyze = "metaHeuristic:main"
+vrp-solve = "vrp:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["metaHeuristic"]

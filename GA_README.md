@@ -286,13 +286,3 @@ def custom_fitness(self, chromosome):
     
     return cost + num_routes_penalty
 ```
-
-## References
-
-- Holland, J. H. (1992). Genetic Algorithms. Scientific American.
-- Goldberg, D. E. (1989). Genetic Algorithms in Search, Optimization, and Machine Learning.
-- Laporte, G. (2009). Fifty Years of Vehicle Routing. Transportation Science.
-
-## License
-
-This implementation is part of the metaHeuristic VRP solver project.

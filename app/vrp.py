@@ -45,12 +45,12 @@ class VRPSolver:
         
         return self.model
     
-    def solve(self, time_limit: int = 120, seed: int = 42):
+    def solve(self, time_limit: int = 180, seed: int = 42):
         """
         Solve the VRP instance.
         
         Args:
-            time_limit: Maximum runtime in seconds (default: 120)
+            time_limit: Maximum runtime in seconds (default: 180)
             seed: Random seed for reproducibility
             
         Returns:
@@ -189,7 +189,7 @@ def main():
     print("PYVRP SOLVER - VRP with 1 Truck (Multiple Trips)")
     print("=" * 80)
     print(f"Instance: {instance_file}")
-    print(f"Time limit: 120 seconds")
+    print(f"Time limit: 180 seconds")
     print(f"Configuration: 1 truck, capacity 1000 (all customers in 1 route)")
     print("=" * 80 + "\n")
     
@@ -201,7 +201,7 @@ def main():
     # Load and solve
     solver.load_instance()
     solver.build_model()
-    result = solver.solve(time_limit=120)
+    result = solver.solve(time_limit=180, seed=42)
     
     # Display results
     solver.print_solution()

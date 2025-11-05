@@ -151,7 +151,7 @@ class GeneticAlgorithmSolver:
         
         return chromosome
     
-    def initialize_population(self, pop_size: int, greedy_ratio: float = 0.2) -> List[List[int]]:
+    def initialize_population(self, pop_size: int, greedy_ratio: float = 0.5) -> List[List[int]]:
         """
         Initialize population with mix of random and greedy solutions.
         

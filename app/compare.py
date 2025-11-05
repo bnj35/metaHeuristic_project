@@ -150,7 +150,8 @@ def main():
     print("ALGORITHM COMPARISON - Genetic Algorithm vs PyVRP")
     print("=" * 80)
     
-    instance_file = "/data/instance.vrp"
+    # Configure instance file here - change this to test different instances
+    instance_file = "/data/instance.vrp" 
     ga_sol_file = "/data/ga_solution.sol"
     pyvrp_sol_file = "/data/pyvrp_solution.sol"
     
@@ -167,12 +168,13 @@ def main():
     
     ga_solver = GeneticAlgorithmSolver(coords, demands, capacity)
     ga_solver.solve(
-        pop_size=100,
-        num_generations=300,
-        crossover_rate=0.8,
-        mutation_rate=0.2,
+        pop_size=320, #320 for 1000 / 1400 for 200 // change as needed -> here for 180s computation time
+        num_generations=200, #200 for 1000 / 1000 for 200 // change as needed -> here for 180s computation time
+        crossover_rate=0.6,
+        mutation_rate=0.05,
         elitism_count=10,
-        local_search_freq=10
+        local_search_freq=4,
+        seed=42
     )
     
     # Save GA solution in .sol format
@@ -189,7 +191,18 @@ def main():
     print(f"Verified cost: {ga_results['cost']}")
     print(f"Feasible: {ga_results['feasible']}")
     
-    # Verify PyVRP solution (already exists)
+    # Run PyVRP solver
+    print("\n" + "=" * 80)
+    print("RUNNING PYVRP SOLVER")
+    print("=" * 80)
+    
+    pyvrp_solver = VRPSolver(instance_file)
+    pyvrp_solver.load_instance()
+    pyvrp_solver.build_model()
+    pyvrp_solver.solve(time_limit=120, seed=42)
+    pyvrp_solver.save_solution(pyvrp_sol_file)
+    
+    # Verify PyVRP solution
     print("\n" + "=" * 80)
     print("VERIFYING PYVRP SOLUTION")
     print("=" * 80)

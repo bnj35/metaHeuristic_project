@@ -151,23 +151,182 @@ class GeneticAlgorithmSolver:
         
         return chromosome
     
-    def initialize_population(self, pop_size: int, greedy_ratio: float = 0.5) -> List[List[int]]:
+    def _create_savings_chromosome(self) -> List[int]:
         """
-        Initialize population with mix of random and greedy solutions.
+        Create a chromosome using Clarke-Wright Savings Algorithm.
+        This provides a high-quality initial solution.
+        
+        Returns:
+            Chromosome (permutation of customers) based on savings heuristic
+        """
+        customers = list(range(self.num_locations))
+        customers.remove(self.depot_idx)
+        
+        # Calculate savings for all pairs of customers
+        savings = []
+        for i in customers:
+            for j in customers:
+                if i < j:
+                    # Savings = distance(depot,i) + distance(depot,j) - distance(i,j)
+                    s = (self.distance_matrix[self.depot_idx, i] + 
+                         self.distance_matrix[self.depot_idx, j] - 
+                         self.distance_matrix[i, j])
+                    savings.append((s, i, j))
+        
+        # Sort savings in descending order
+        savings.sort(reverse=True, key=lambda x: x[0])
+        
+        # Build routes using savings - each customer starts in its own route
+        # Use a dictionary mapping customer to route
+        customer_to_route = {c: [c] for c in customers}
+        route_demands = {c: self.demands[c] for c in customers}
+        
+        for saving, i, j in savings:
+            # Check if i and j are in different routes
+            if i not in customer_to_route or j not in customer_to_route:
+                continue
+                
+            route_i = customer_to_route[i]
+            route_j = customer_to_route[j]
+            
+            # Skip if already in the same route
+            if route_i is route_j:
+                continue
+            
+            # Check if i and j are at the ends of their routes
+            i_at_end = (route_i[0] == i or route_i[-1] == i)
+            j_at_end = (route_j[0] == j or route_j[-1] == j)
+            
+            if i_at_end and j_at_end:
+                # Calculate combined demand
+                demand_i = sum(self.demands[c] for c in route_i)
+                demand_j = sum(self.demands[c] for c in route_j)
+                combined_demand = demand_i + demand_j
+                
+                # Check capacity constraint
+                if combined_demand <= self.capacity:
+                    # Merge routes based on which ends match
+                    if route_i[-1] == i and route_j[0] == j:
+                        new_route = route_i + route_j
+                    elif route_i[0] == i and route_j[-1] == j:
+                        new_route = route_j + route_i
+                    elif route_i[-1] == i and route_j[-1] == j:
+                        new_route = route_i + route_j[::-1]
+                    elif route_i[0] == i and route_j[0] == j:
+                        new_route = route_i[::-1] + route_j
+                    else:
+                        continue
+                    
+                    # Update all customers in both routes to point to the new merged route
+                    for c in route_j:
+                        customer_to_route[c] = new_route
+                    for c in route_i:
+                        customer_to_route[c] = new_route
+        
+        # Collect unique routes (avoid duplicates)
+        seen = set()
+        routes = []
+        for route in customer_to_route.values():
+            route_tuple = tuple(route)
+            if route_tuple not in seen:
+                seen.add(route_tuple)
+                routes.append(route)
+        
+        # Convert routes to chromosome (flatten routes)
+        chromosome = [customer for route in routes for customer in route]
+        return chromosome
+    
+    def _create_sweep_chromosome(self) -> List[int]:
+        """
+        Create a chromosome using Sweep Algorithm.
+        Customers are sorted by polar angle from depot and grouped into routes.
+        
+        Returns:
+            Chromosome based on sweep heuristic
+        """
+        customers = list(range(self.num_locations))
+        customers.remove(self.depot_idx)
+        
+        # Calculate polar angles from depot
+        depot_coord = self.coords[self.depot_idx]
+        angles = {}
+        
+        for c in customers:
+            dx = self.coords[c][0] - depot_coord[0]
+            dy = self.coords[c][1] - depot_coord[1]
+            angle = np.arctan2(dy, dx)
+            angles[c] = angle
+        
+        # Sort customers by angle
+        sorted_customers = sorted(customers, key=lambda c: angles[c])
+        
+        # Group into feasible routes
+        chromosome = []
+        current_load = 0
+        
+        for customer in sorted_customers:
+            if current_load + self.demands[customer] <= self.capacity:
+                chromosome.append(customer)
+                current_load += self.demands[customer]
+            else:
+                # Start new route - add some randomization at route boundaries
+                chromosome.append(customer)
+                current_load = self.demands[customer]
+        
+        return chromosome
+    
+    def initialize_population(self, pop_size: int, heuristic_ratio: float = 0.3,
+                            use_savings: bool = True, use_sweep: bool = True) -> List[List[int]]:
+        """
+        Initialize population with mix of heuristic and random solutions.
         
         Args:
             pop_size: Population size
-            greedy_ratio: Ratio of greedy solutions in initial population
+            heuristic_ratio: Ratio of heuristic-based solutions (vs random)
+            use_savings: Include Clarke-Wright Savings solutions
+            use_sweep: Include Sweep algorithm solutions
             
         Returns:
             Initial population
         """
         population = []
-        num_greedy = int(pop_size * greedy_ratio)
+        num_heuristic = int(pop_size * heuristic_ratio)
         
-        # Add greedy solutions with some randomization
-        for _ in range(num_greedy):
-            chromosome = self._create_greedy_chromosome()
+        # Determine how many of each heuristic type
+        heuristic_types = []
+        if use_savings:
+            heuristic_types.append('savings')
+        if use_sweep:
+            heuristic_types.append('sweep')
+        heuristic_types.append('nearest_neighbor')  # Always include greedy
+        
+        # Add one pure heuristic solution of each type first
+        for h_type in heuristic_types:
+            if len(population) >= pop_size:
+                break
+            
+            if h_type == 'savings':
+                population.append(self._create_savings_chromosome())
+            elif h_type == 'sweep':
+                population.append(self._create_sweep_chromosome())
+            else:
+                population.append(self._create_greedy_chromosome())
+        
+        # Add heuristic solutions with some randomization
+        for _ in range(num_heuristic - len(heuristic_types)):
+            if len(population) >= pop_size:
+                break
+                
+            # Randomly choose heuristic type
+            h_type = random.choice(heuristic_types)
+            
+            if h_type == 'savings':
+                chromosome = self._create_savings_chromosome()
+            elif h_type == 'sweep':
+                chromosome = self._create_sweep_chromosome()
+            else:
+                chromosome = self._create_greedy_chromosome()
+            
             # Add some randomness by swapping a few customers
             num_swaps = random.randint(1, 5)
             for _ in range(num_swaps):
@@ -176,7 +335,7 @@ class GeneticAlgorithmSolver:
             population.append(chromosome)
         
         # Fill rest with random solutions
-        for _ in range(pop_size - num_greedy):
+        while len(population) < pop_size:
             population.append(self._create_random_chromosome())
         
         return population
@@ -397,7 +556,8 @@ class GeneticAlgorithmSolver:
     def solve(self, pop_size: int = 100, num_generations: int = 100, 
               crossover_rate: float = 0.8, mutation_rate: float = 0.2,
               elitism_count: int = 2, local_search_freq: int = 10,
-              seed: Optional[int] = None) -> Tuple[List[List[int]], float]:
+              heuristic_ratio: float = 0.3, use_savings: bool = True, 
+              use_sweep: bool = True, seed: Optional[int] = None) -> Tuple[List[List[int]], float]:
         """
         Solve VRP using Genetic Algorithm.
         
@@ -408,6 +568,9 @@ class GeneticAlgorithmSolver:
             mutation_rate: Probability of mutation
             elitism_count: Number of best individuals to preserve
             local_search_freq: Apply local search every N generations
+            heuristic_ratio: Ratio of heuristic-based initial solutions (vs random)
+            use_savings: Use Clarke-Wright Savings for initialization
+            use_sweep: Use Sweep algorithm for initialization
             seed: Random seed for reproducibility
             
         Returns:
@@ -423,12 +586,26 @@ class GeneticAlgorithmSolver:
         print(f"Crossover rate: {crossover_rate}")
         print(f"Mutation rate: {mutation_rate}")
         print(f"Elitism: {elitism_count}")
+        print(f"Heuristic initialization ratio: {heuristic_ratio:.1%}")
+        if use_savings:
+            print(f"  - Using Clarke-Wright Savings heuristic")
+        if use_sweep:
+            print(f"  - Using Sweep heuristic")
+        print(f"  - Using Nearest Neighbor heuristic")
         print(f"Number of customers: {self.num_locations - 1}")
         print(f"Vehicle capacity: {self.capacity}")
         print("-" * 60)
         
-        # Initialize population
-        population = self.initialize_population(pop_size)
+        # Initialize population with heuristics
+        print("Initializing population with constructive heuristics...")
+        population = self.initialize_population(pop_size, heuristic_ratio, use_savings, use_sweep)
+        
+        # Evaluate initial population to show improvement
+        initial_fitnesses = [self._evaluate_fitness(chrom) for chrom in population]
+        initial_best = min(initial_fitnesses)
+        initial_avg = sum(initial_fitnesses) / len(initial_fitnesses)
+        print(f"Initial population - Best: {initial_best:.2f}, Avg: {initial_avg:.2f}")
+        print("-" * 60)
         
         for generation in range(num_generations):
             # Evaluate fitness
@@ -679,6 +856,9 @@ def main():
         mutation_rate=0.2,
         elitism_count=2,
         local_search_freq=10,
+        heuristic_ratio=0.3,  # 30% of initial population from heuristics
+        use_savings=True,     # Use Clarke-Wright Savings
+        use_sweep=True,       # Use Sweep algorithm
         seed=42
     )
     

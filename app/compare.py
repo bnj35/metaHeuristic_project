@@ -154,9 +154,9 @@ def main():
     # Build paths relative to the repository root so the script works when run
     # from different working directories.
     repo_root = Path(__file__).resolve().parents[1]
-    instance_file = str(repo_root / "data" / "X-n101-k25.vrp")
+    instance_file = str(repo_root / "data" / "X-n1001-k43.vrp")
     ga_sol_file = str(repo_root / "data" / "ga_solution.sol")
-    pyvrp_sol_file = str(repo_root / "data" / "X-n101-k25.sol")
+    pyvrp_sol_file = str(repo_root / "data" / "X-n1001-k43.sol")
     
     # Run Genetic Algorithm
     print("\n" + "=" * 80)
@@ -169,14 +169,27 @@ def main():
     capacity = instance['capacity']
     demands = instance.get('demand', [0] + [1] * (instance['dimension'] - 1))
     
+    # GA Parameters:
+    # - pop_size: population size, larger for big instances (100-1000)
+    # - num_generations: number of iterations (100-1000)
+    # - crossover_rate: probability of crossover (0.6-0.9)
+    # - mutation_rate: probability of mutation (0.01-0.2)
+    # - elitism_count: preserve N best individuals (2-20)
+    # - local_search_freq: apply local search every N generations (5-20)
+    # - heuristic_ratio: fraction of initial population from heuristics (0.2-0.5)
+    # - use_savings: enable Clarke-Wright Savings heuristic
+    # - use_sweep: enable Sweep heuristic
     ga_solver = GeneticAlgorithmSolver(coords, demands, capacity)
     ga_solver.solve(
-        pop_size=1400, #320 for 1000 / 1400 for 200 // change as needed -> here for 180s computation time
-        num_generations=1000, #200 for 1000 / 1000 for 200 // change as needed -> here for 180s computation time
-        crossover_rate=0.8,
-        mutation_rate=0.05,
-        elitism_count=5,
-        local_search_freq=4,
+        pop_size=250,           # Medium population for 100-node instance
+        num_generations=400,    # Adequate generations for convergence
+        crossover_rate=0.6,     # High crossover to combine good solutions
+        mutation_rate=0.5,     # Moderate mutation for diversity
+        elitism_count=3,        # Preserve top 5 solutions
+        local_search_freq=3,   # Apply 2-opt every 10 generations
+        heuristic_ratio=0.3,    # 30% heuristic-based initialization
+        use_savings=True,       # Enable Clarke-Wright Savings
+        use_sweep=True,         # Enable Sweep algorithm
         seed=42
     )
     

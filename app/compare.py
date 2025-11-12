@@ -151,9 +151,12 @@ def main():
     print("=" * 80)
     
     # Configure instance file here - change this to test different instances
-    instance_file = "/data/instance.vrp" 
-    ga_sol_file = "/data/ga_solution.sol"
-    pyvrp_sol_file = "/data/pyvrp_solution.sol"
+    # Build paths relative to the repository root so the script works when run
+    # from different working directories.
+    repo_root = Path(__file__).resolve().parents[1]
+    instance_file = str(repo_root / "data" / "X-n101-k25.vrp")
+    ga_sol_file = str(repo_root / "data" / "ga_solution.sol")
+    pyvrp_sol_file = str(repo_root / "data" / "X-n101-k25.sol")
     
     # Run Genetic Algorithm
     print("\n" + "=" * 80)
@@ -168,11 +171,11 @@ def main():
     
     ga_solver = GeneticAlgorithmSolver(coords, demands, capacity)
     ga_solver.solve(
-        pop_size=320, #320 for 1000 / 1400 for 200 // change as needed -> here for 180s computation time
-        num_generations=200, #200 for 1000 / 1000 for 200 // change as needed -> here for 180s computation time
-        crossover_rate=0.6,
+        pop_size=1400, #320 for 1000 / 1400 for 200 // change as needed -> here for 180s computation time
+        num_generations=1000, #200 for 1000 / 1000 for 200 // change as needed -> here for 180s computation time
+        crossover_rate=0.8,
         mutation_rate=0.05,
-        elitism_count=10,
+        elitism_count=5,
         local_search_freq=4,
         seed=42
     )
@@ -196,18 +199,24 @@ def main():
     print("RUNNING PYVRP SOLVER")
     print("=" * 80)
     
-    pyvrp_solver = VRPSolver(instance_file)
-    pyvrp_solver.load_instance()
-    pyvrp_solver.build_model()
-    pyvrp_solver.solve(time_limit=120, seed=42)
-    pyvrp_solver.save_solution(pyvrp_sol_file)
+    # pyvrp_solver = VRPSolver(instance_file)
+    # pyvrp_solver.load_instance()
+    # pyvrp_solver.build_model()
+    # pyvrp_solver.solve(time_limit=120, seed=42)
+    # pyvrp_solver.save_solution(pyvrp_sol_file)
     
     # Verify PyVRP solution
     print("\n" + "=" * 80)
     print("VERIFYING PYVRP SOLUTION")
     print("=" * 80)
-    
-    pyvrp_results = verify_solution(instance_file, pyvrp_sol_file)
+    # If a PyVRP solution file exists, verify it. Otherwise skip comparison.
+    pyvrp_path = Path(pyvrp_sol_file)
+    if pyvrp_path.exists():
+        pyvrp_results = verify_solution(instance_file, pyvrp_sol_file)
+    else:
+        print(f"No PyVRP solution file found at: {pyvrp_sol_file}")
+        print("Skipping PyVRP verification and comparison.")
+        pyvrp_results = None
     
     # Comparison
     print("\n" + "=" * 80)
@@ -220,30 +229,40 @@ def main():
     print(f"  Feasible: {ga_results['feasible']}")
     
     print(f"\nPyVRP:")
-    print(f"  Cost: {pyvrp_results['cost']:.2f}")
-    print(f"  Routes: {pyvrp_results['num_routes']}")
-    print(f"  Feasible: {pyvrp_results['feasible']}")
-    
-    # Calculate difference
-    cost_diff = ga_results['cost'] - pyvrp_results['cost']
-    cost_diff_pct = (cost_diff / pyvrp_results['cost']) * 100
-    
-    print(f"\nDifference:")
-    print(f"  Cost difference: {cost_diff:+.2f} ({cost_diff_pct:+.2f}%)")
-    
-    if ga_results['cost'] < pyvrp_results['cost']:
-        print(f"  ✓ GA found a better solution!")
-    elif ga_results['cost'] > pyvrp_results['cost']:
-        print(f"  ✓ PyVRP found a better solution!")
+    if pyvrp_results:
+        print(f"  Cost: {pyvrp_results['cost']:.2f}")
+        print(f"  Routes: {pyvrp_results['num_routes']}")
+        print(f"  Feasible: {pyvrp_results['feasible']}")
     else:
-        print(f"  ✓ Both algorithms found the same cost!")
+        print("  No PyVRP solution available; comparison skipped.")
+    
+    # Calculate difference only if PyVRP results are available
+    if pyvrp_results:
+        cost_diff = ga_results['cost'] - pyvrp_results['cost']
+        cost_diff_pct = (cost_diff / pyvrp_results['cost']) * 100
+
+        print(f"\nDifference:")
+        print(f"  Cost difference: {cost_diff:+.2f} ({cost_diff_pct:+.2f}%)")
+
+        if ga_results['cost'] < pyvrp_results['cost']:
+            print(f"  ✓ GA found a better solution!")
+        elif ga_results['cost'] > pyvrp_results['cost']:
+            print(f"  ✓ PyVRP found a better solution!")
+        else:
+            print(f"  ✓ Both algorithms found the same cost!")
+    else:
+        print("\nDifference: N/A (no PyVRP solution to compare)")
     
     # Visualize comparison
     print("\n" + "=" * 80)
     print("GENERATING COMPARISON VISUALIZATION")
     print("=" * 80)
     
-    visualize_comparison(ga_results, pyvrp_results, save_path="/data/algorithm_comparison.png")
+    # Only visualize if we have both results
+    if pyvrp_results:
+        visualize_comparison(ga_results, pyvrp_results, save_path=str(repo_root / "data" / "algorithm_comparison.png"))
+    else:
+        print("Skipping visualization because PyVRP results are not available.")
     
     print("\n" + "=" * 80)
     print("COMPARISON COMPLETE")

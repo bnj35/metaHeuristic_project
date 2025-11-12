@@ -627,7 +627,7 @@ def main():
     import vrplib
     from pathlib import Path
     
-    instance_path = "/data/X-n101-k25.vrp"
+    instance_path = "/data/instance.vrp"
     
     print("\n" + "=" * 80)
     print("GENETIC ALGORITHM METAHEURISTIC - VRP with 1 Truck (Multiple Trips)")
